@@ -1,9 +1,19 @@
 """
-ML × Streamlit Framework — Entry Point
+ML × Streamlit Framework — Main Entry Point
 
-Jalankan aplikasi:
-    streamlit run app.py
+Jalankan aplikasi dari root project:
+    streamlit run cmd/app/main.py
 """
+
+import sys
+from pathlib import Path
+
+# ──────────────────────────────────────────────
+# Setup Path Resolution (Menambahkan Root Project ke sys.path)
+# ──────────────────────────────────────────────
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 import streamlit as st
 

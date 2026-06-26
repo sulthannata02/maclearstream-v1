@@ -28,9 +28,12 @@
 ## 📁 Project Structure
 
 ```
-├── app.py                    # Streamlit entry point
 ├── config.yaml               # Master project configuration (EDIT THIS)
 ├── requirements.txt          # Package dependencies
+│
+├── cmd/                      # Main applications & commands
+│   └── app/                  # Application entry point directory
+│       └── main.py           # Streamlit entry point (streamlit run cmd/app/main.py)
 │
 ├── config/                   # Config engine layer
 │   └── settings.py           # YAML loader & global config accessors
@@ -126,7 +129,7 @@ features:
 ### 4. Run the Application
 
 ```bash
-streamlit run app.py
+streamlit run cmd/app/main.py
 ```
 
 ---
