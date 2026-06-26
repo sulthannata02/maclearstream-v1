@@ -1,0 +1,172 @@
+# ╔══════════════════════════════════════════════════════════════╗
+# ║          ML × Streamlit — Project Configuration            ║
+# ╠══════════════════════════════════════════════════════════════╣
+# ║  Edit file ini untuk mengkonfigurasi project ML kamu.      ║
+# ║  Tidak perlu ubah code — cukup edit YAML ini.              ║
+# ╚══════════════════════════════════════════════════════════════╝
+
+# ──────────────────────────────────────────────
+# Project Info
+# ──────────────────────────────────────────────
+project:
+  name: My ML Project
+  description: Machine Learning Project powered by Streamlit
+  version: 1.0.0
+  author: Your Name
+  task_type: classification       # classification | regression
+
+# ──────────────────────────────────────────────
+# Dataset
+# ──────────────────────────────────────────────
+dataset:
+  path: dataset/data.csv
+  target_column: target
+  zero_columns: []                # kolom yang nilai 0 dianggap missing value (opsional)
+
+# ──────────────────────────────────────────────
+# Features — definisi input form prediksi
+# ──────────────────────────────────────────────
+# type: number | slider | select
+# Untuk type 'select', tambahkan key 'options: [val1, val2, ...]'
+features:
+  - name: feature_1
+    label: Feature Satu
+    type: number
+    min: 0
+    max: 100
+    default: 50
+    step: 1
+    help: Deskripsi singkat feature 1
+
+  - name: feature_2
+    label: Feature Dua
+    type: slider
+    min: 0.0
+    max: 1.0
+    default: 0.5
+    step: 0.01
+    help: Deskripsi singkat feature 2
+
+# ──────────────────────────────────────────────
+# Preprocessing Pipeline
+# ──────────────────────────────────────────────
+# Steps dijalankan berurutan (top → bottom).
+# Strategi yang tersedia:
+#   missing_values : median | mean | mode | drop
+#   outlier_removal: iqr | zscore | none
+#   encoding       : label | onehot | none
+#   scaling        : standard | minmax | robust | none
+#   split          : test_size, random_state, stratify
+pipeline:
+  steps:
+    - name: missing_values
+      strategy: median
+
+    - name: outlier_removal
+      method: none
+      threshold: 1.5
+
+    - name: encoding
+      method: label
+
+    - name: scaling
+      method: standard
+
+    - name: split
+      test_size: 0.2
+      random_state: 42
+      stratify: true
+
+# ──────────────────────────────────────────────
+# Models — daftar model yang tersedia
+# ──────────────────────────────────────────────
+# Tambah model baru = tambah entry di bawah.
+# 'class' harus full module path sklearn.
+models:
+  - name: logistic_regression
+    display_name: Logistic Regression
+    class: sklearn.linear_model.LogisticRegression
+    task: classification
+    params:
+      max_iter: 1000
+      random_state: 42
+
+  - name: random_forest
+    display_name: Random Forest
+    class: sklearn.ensemble.RandomForestClassifier
+    task: classification
+    params:
+      n_estimators: 300
+      max_depth: 10
+      min_samples_split: 5
+      min_samples_leaf: 2
+      random_state: 42
+
+  - name: gradient_boosting
+    display_name: Gradient Boosting
+    class: sklearn.ensemble.GradientBoostingClassifier
+    task: classification
+    params:
+      n_estimators: 200
+      learning_rate: 0.1
+      max_depth: 5
+      random_state: 42
+
+  - name: svm
+    display_name: Support Vector Machine
+    class: sklearn.svm.SVC
+    task: classification
+    params:
+      kernel: rbf
+      probability: true
+      random_state: 42
+
+# ──────────────────────────────────────────────
+# UI Settings
+# ──────────────────────────────────────────────
+ui:
+  page_title: My ML Project
+  page_icon: "🤖"
+  layout: wide
+  theme: dark_premium               # dark_premium | ocean_blue | forest_green | minimal_light
+
+  menu:
+    - emoji: "🏠"
+      label: Beranda
+      view: home
+
+    - emoji: "📊"
+      label: Analisis Data
+      view: eda
+
+    - emoji: "🔧"
+      label: Preprocessing
+      view: preprocessing
+
+    - emoji: "🧠"
+      label: Training
+      view: training
+
+    - emoji: "📈"
+      label: Evaluasi
+      view: evaluation
+
+    - emoji: "🔮"
+      label: Prediksi
+      view: prediction
+
+    - emoji: "📋"
+      label: Experiments
+      view: experiments
+
+    - emoji: "ℹ️"
+      label: Tentang
+      view: about
+
+# ──────────────────────────────────────────────
+# Paths (relative to project root)
+# ──────────────────────────────────────────────
+paths:
+  dataset_dir: dataset
+  artifacts_dir: artifacts
+  experiments_dir: experiments
