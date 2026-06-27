@@ -11,7 +11,7 @@ import io
 import json
 from typing import Any
 
-import pandas as pd
+import pandas as pd  # type: ignore # pyright: ignore[reportMissingImports]
 
 
 def export_dataframe_csv(df: pd.DataFrame) -> bytes:
@@ -46,3 +46,22 @@ def export_predictions_csv(
 ) -> bytes:
     """Export hasil prediksi batch ke CSV bytes."""
     return predictions_df.to_csv(index=False).encode("utf-8")
+
+
+def export_model_onnx(model: Any, input_shape: int) -> bytes | None:
+    """Export sklearn model ke ONNX bytes."""
+    try:
+        from skl2onnx import convert_sklearn  # type: ignore # pyright: ignore[reportMissingImports]
+        from skl2onnx.common.data_types import FloatTensorType  # type: ignore # pyright: ignore[reportMissingImports]
+
+        actual_model = model
+        if hasattr(model, "model"):
+            actual_model = model.model
+
+        initial_type = [('float_input', FloatTensorType([None, input_shape]))]
+        onx = convert_sklearn(actual_model, initial_types=initial_type)
+        return onx.SerializeToString()
+    except Exception:
+        return None
+
+

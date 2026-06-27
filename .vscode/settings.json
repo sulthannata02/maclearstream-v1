@@ -1,0 +1,26 @@
+{
+    "python.analysis.typeCheckingMode": "off",
+    "python.analysis.extraPaths": [
+        "."
+    ],
+    "python.autoComplete.extraPaths": [
+        "."
+    ],
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportMissingImports": "none",
+        "reportMissingModuleSource": "none",
+        "reportGeneralTypeIssues": "none",
+        "reportOptionalMemberAccess": "none",
+        "reportPossiblyUnboundVariable": "none",
+        "reportAttributeAccessIssue": "none",
+        "reportArgumentType": "none",
+        "reportUndefinedVariable": "none",
+        "reportUnboundVariable": "none",
+        "reportInvalidStringEscapeSequence": "none"
+    },
+    "python.linting.enabled": false,
+    "python.linting.pylintEnabled": false,
+    "python.linting.flake8Enabled": false,
+    "python.linting.mypyEnabled": false,
+    "pyright.typeCheckingMode": "off"
+}

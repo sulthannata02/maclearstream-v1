@@ -6,12 +6,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import streamlit as st
+import streamlit as st  # type: ignore # pyright: ignore[reportMissingImports]
 
-from config.settings import get_config, get_paths_config
-from src.layouts.header import render_header
-from src.components.widgets import empty_state
-from src.components.charts import (
+from config.settings import get_config, get_paths_config  # type: ignore # pyright: ignore[reportMissingImports]
+from src.layouts.header import render_header  # type: ignore # pyright: ignore[reportMissingImports]
+from src.components.widgets import empty_state  # type: ignore # pyright: ignore[reportMissingImports]
+from src.components.charts import (  # type: ignore # pyright: ignore[reportMissingImports]
     plot_confusion_matrix,
     plot_roc_curve,
     plot_feature_importance,
@@ -19,12 +19,12 @@ from src.components.charts import (
     plot_residuals,
     plot_prediction_vs_actual,
 )
-from services.preprocessing import preprocess
-from services.evaluation import evaluate_model, compare_models
-from services.prediction import get_available_models
-from services.export import export_comparison_csv
-from utils.file_handler import load_artifact
-from utils.constants import CLASSIFICATION
+from services.preprocessing import preprocess  # type: ignore # pyright: ignore[reportMissingImports]
+from services.evaluation import evaluate_model, compare_models  # type: ignore # pyright: ignore[reportMissingImports]
+from services.prediction import get_available_models  # type: ignore # pyright: ignore[reportMissingImports]
+from services.export import export_comparison_csv, export_model_onnx  # type: ignore # pyright: ignore[reportMissingImports]
+from utils.file_handler import load_artifact  # type: ignore # pyright: ignore[reportMissingImports]
+from utils.constants import CLASSIFICATION  # type: ignore # pyright: ignore[reportMissingImports]
 
 
 def show() -> None:
@@ -62,7 +62,7 @@ def show() -> None:
                 model_path = artifacts_dir / f"{model_name}.pkl"
                 model = load_artifact(model_path)
                 metrics = evaluate_model(
-                    model, data["X_test"], data["y_test"], task_type,
+                    model, data["X_test"], data["y_test"], task_type, feature_names=data["feature_names"],
                 )
                 all_results[model_name] = metrics
                 all_models[model_name] = model
@@ -101,6 +101,17 @@ def show() -> None:
     )
 
     metrics = all_results[selected_model]
+    model = all_models[selected_model]
+
+    # Export ONNX Button
+    onnx_bytes = export_model_onnx(model, input_shape=len(data["feature_names"]))
+    if onnx_bytes:
+        st.download_button(
+            f"📥 Download Model {selected_model} (ONNX)",
+            data=onnx_bytes,
+            file_name=f"{selected_model}.onnx",
+            mime="application/octet-stream",
+        )
 
     # Scalar metrics
     if task_type == CLASSIFICATION:
@@ -145,13 +156,17 @@ def show() -> None:
                 plot_prediction_vs_actual(data["y_test"].values, y_pred)
 
     # Feature importance
-    model = all_models[selected_model]
-    fi = None
-    if hasattr(model, "feature_importances_"):
-        fi = model.feature_importances_
-    elif hasattr(model, "coef_"):
-        import numpy as np
-        fi = np.abs(model.coef_).flatten()
+    if metrics.get("feature_importance") is not None:
+        fi_df = metrics["feature_importance"]
+        plot_feature_importance(fi_df["Importance"].values, fi_df["Feature"].tolist())
+    else:
+        fi = None
+        if hasattr(model, "feature_importances_"):
+            fi = model.feature_importances_
+        elif hasattr(model, "coef_"):
+            import numpy as np
+            fi = np.abs(model.coef_).flatten()
 
-    if fi is not None:
-        plot_feature_importance(fi, data["feature_names"])
+        if fi is not None:
+            plot_feature_importance(fi, data["feature_names"])
+

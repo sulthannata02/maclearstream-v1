@@ -12,19 +12,24 @@ Contoh penggunaan:
 
 from __future__ import annotations
 
+import os
+import hashlib
+from pathlib import Path
 from typing import Any
 
-import numpy as np
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import (
+import numpy as np  # type: ignore # pyright: ignore[reportMissingImports]
+import pandas as pd  # type: ignore # pyright: ignore[reportMissingImports]
+import joblib  # type: ignore # pyright: ignore[reportMissingImports]
+from sklearn.model_selection import train_test_split  # type: ignore # pyright: ignore[reportMissingImports]
+from sklearn.preprocessing import (  # type: ignore # pyright: ignore[reportMissingImports]
     StandardScaler,
     MinMaxScaler,
     RobustScaler,
     LabelEncoder,
 )
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer  # type: ignore # pyright: ignore[reportMissingImports]
 
-from core.exceptions import PipelineError
+from core.exceptions import PipelineError  # type: ignore # pyright: ignore[reportMissingImports]
 
 
 # ══════════════════════════════════════════════
@@ -36,6 +41,7 @@ class BaseStep:
 
     name: str = "base_step"
     description: str = "Base step"
+    optional: bool = False
 
     def transform(self, df: pd.DataFrame, **kwargs: Any) -> pd.DataFrame:
         """Transform dataframe. Override di subclass."""
@@ -59,6 +65,7 @@ class MissingValueHandler(BaseStep):
         self,
         strategy: str = "median",
         zero_columns: list[str] | None = None,
+        **kwargs: Any,
     ) -> None:
         self.strategy = strategy
         self.zero_columns = zero_columns or []
@@ -105,6 +112,7 @@ class OutlierHandler(BaseStep):
         self,
         method: str = "none",
         threshold: float = 1.5,
+        **kwargs: Any,
     ) -> None:
         self.method = method
         self.threshold = threshold
@@ -145,7 +153,7 @@ class CategoricalEncoder(BaseStep):
 
     name = "encoding"
 
-    def __init__(self, method: str = "label") -> None:
+    def __init__(self, method: str = "label", **kwargs: Any) -> None:
         self.method = method
         self.encoders: dict[str, LabelEncoder] = {}
         self.description = f"Categorical encoding (method: {method})"
@@ -156,6 +164,9 @@ class CategoricalEncoder(BaseStep):
 
         df = df.copy()
         cat_cols = df.select_dtypes(include=["object", "category"]).columns
+        target = kwargs.get("target_column")
+        if target and target in cat_cols:
+            cat_cols = cat_cols.drop(target)
 
         if len(cat_cols) == 0:
             return df
@@ -183,7 +194,7 @@ class FeatureScaler(BaseStep):
         "robust": RobustScaler,
     }
 
-    def __init__(self, method: str = "standard") -> None:
+    def __init__(self, method: str = "standard", **kwargs: Any) -> None:
         self.method = method
         self.scaler = None
         self.description = f"Feature scaling (method: {method})"
@@ -220,6 +231,110 @@ class FeatureScaler(BaseStep):
         return df
 
 
+class NLPCleaner(BaseStep):
+    """Membersihkan teks untuk NLP workflows."""
+
+    name = "nlp_cleaning"
+
+    def __init__(
+        self,
+        enabled: bool = False,
+        lowercase: bool = True,
+        remove_stopwords: bool = True,
+        **kwargs: Any,
+    ) -> None:
+        self.enabled = enabled
+        self.lowercase = lowercase
+        self.remove_stopwords = remove_stopwords
+        self.description = f"NLP Text Cleaning (enabled: {enabled}, lowercase: {lowercase})"
+
+    def transform(self, df: pd.DataFrame, **kwargs: Any) -> pd.DataFrame:
+        if not self.enabled:
+            return df
+
+        df = df.copy()
+        text_cols = df.select_dtypes(include=["object"]).columns
+        target = kwargs.get("target_column")
+        if target and target in text_cols:
+            text_cols = text_cols.drop(target)
+
+        for col in text_cols:
+            if self.lowercase:
+                df[col] = df[col].astype(str).str.lower()
+            if self.remove_stopwords:
+                df[col] = df[col].astype(str).str.replace(r'\b(the|is|in|at|of|on|and|a|an)\b', '', regex=True)
+                df[col] = df[col].str.strip()
+
+        return df
+
+
+class TextVectorizer(BaseStep):
+    """Mengubah teks menjadi representasi numerik (TF-IDF atau BoW)."""
+
+    name = "vectorizer"
+
+    def __init__(
+        self,
+        method: str = "none",
+        max_features: int = 5000,
+        **kwargs: Any,
+    ) -> None:
+        self.method = method
+        self.max_features = max_features
+        self.vectorizers: dict[str, Any] = {}
+        self.description = f"Text Vectorization (method: {method}, max_features: {max_features})"
+
+    def transform(self, df: pd.DataFrame, **kwargs: Any) -> pd.DataFrame:
+        if self.method == "none":
+            return df
+
+        df = df.copy()
+        text_cols = df.select_dtypes(include=["object"]).columns
+        target = kwargs.get("target_column")
+        if target and target in text_cols:
+            text_cols = text_cols.drop(target)
+
+        if len(text_cols) == 0:
+            return df
+
+        for col in text_cols:
+            vec_class = TfidfVectorizer if self.method == "tfidf" else CountVectorizer
+            vec = vec_class(max_features=self.max_features)
+            transformed = vec.fit_transform(df[col].astype(str)).toarray()
+
+            col_names = [f"{col}_{self.method}_{i}" for i in range(transformed.shape[1])]
+            vec_df = pd.DataFrame(transformed, columns=col_names, index=df.index)
+
+            df = pd.concat([df.drop(columns=[col]), vec_df], axis=1)
+            self.vectorizers[col] = vec
+
+        return df
+
+
+class CustomTransformer(BaseStep):
+    """Custom user-defined transformation."""
+
+    name = "custom_transform"
+
+    def __init__(self, func_name: str = "none", **kwargs: Any) -> None:
+        self.func_name = func_name
+        self.description = f"Custom transformation ({func_name})"
+
+    def transform(self, df: pd.DataFrame, **kwargs: Any) -> pd.DataFrame:
+        if self.func_name == "none":
+            return df
+        df = df.copy()
+        if self.func_name == "log_transform":
+            num_cols = df.select_dtypes(include=[np.number]).columns
+            target = kwargs.get("target_column")
+            if target and target in num_cols:
+                num_cols = num_cols.drop(target)
+            for col in num_cols:
+                if (df[col] > 0).all():
+                    df[col] = np.log1p(df[col])
+        return df
+
+
 class DataSplitter(BaseStep):
     """Split dataset menjadi train dan test set."""
 
@@ -230,6 +345,7 @@ class DataSplitter(BaseStep):
         test_size: float = 0.2,
         random_state: int = 42,
         stratify: bool = True,
+        **kwargs: Any,
     ) -> None:
         self.test_size = test_size
         self.random_state = random_state
@@ -270,6 +386,9 @@ STEP_REGISTRY: dict[str, type[BaseStep]] = {
     "outlier_removal": OutlierHandler,
     "encoding": CategoricalEncoder,
     "scaling": FeatureScaler,
+    "nlp_cleaning": NLPCleaner,
+    "vectorizer": TextVectorizer,
+    "custom_transform": CustomTransformer,
     "split": DataSplitter,
 }
 
@@ -282,12 +401,27 @@ class Pipeline:
     ----------
     steps : list[BaseStep]
         Urutan step preprocessing.
+    cache_enabled : bool
+        Mengaktifkan caching via joblib.
     """
 
-    def __init__(self, steps: list[BaseStep] | None = None) -> None:
+    def __init__(
+        self,
+        steps: list[BaseStep] | None = None,
+        cache_enabled: bool = False,
+    ) -> None:
         self.steps: list[BaseStep] = steps or []
+        self.cache_enabled: bool = cache_enabled
         self._scaler_step: FeatureScaler | None = None
         self._splitter_step: DataSplitter | None = None
+        self._encoders: dict[str, Any] = {}
+
+        if self.cache_enabled:
+            cache_dir = Path("artifacts/cache")
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            self.memory = joblib.Memory(location=str(cache_dir), verbose=0)
+        else:
+            self.memory = joblib.Memory(location=None, verbose=0)
 
     def add_step(self, step: BaseStep) -> "Pipeline":
         """Tambahkan step ke pipeline."""
@@ -297,9 +431,36 @@ class Pipeline:
     def describe(self) -> list[dict[str, str]]:
         """Kembalikan deskripsi semua steps untuk UI display."""
         return [
-            {"name": step.name, "description": step.describe()}
+            {"name": step.name, "description": step.describe(), "optional": str(getattr(step, "optional", False))}
             for step in self.steps
         ]
+
+    def _execute_steps(self, df: pd.DataFrame, target_column: str) -> tuple[pd.DataFrame, DataSplitter | None, FeatureScaler | None, dict[str, Any]]:
+        processed_df = df.copy()
+        splitter = None
+        scaler = None
+        encoders = {}
+
+        for step in self.steps:
+            if isinstance(step, DataSplitter):
+                splitter = step
+                continue
+
+            if isinstance(step, FeatureScaler):
+                scaler = step
+
+            if isinstance(step, CategoricalEncoder):
+                encoders.update(getattr(step, "encoders", {}))
+
+            try:
+                processed_df = step.transform(
+                    processed_df,
+                    target_column=target_column,
+                )
+            except Exception as e:
+                raise PipelineError(step.name, str(e)) from e
+
+        return processed_df, splitter, scaler, encoders
 
     def run(
         self,
@@ -319,26 +480,14 @@ class Pipeline:
         Returns
         -------
         dict
-            Berisi: dataframe, feature_names, scaler, X_train, X_test,
+            Berisi: dataframe, feature_names, scaler, encoders, X_train, X_test,
             y_train, y_test.
         """
-        processed_df = df.copy()
-
-        for step in self.steps:
-            if isinstance(step, DataSplitter):
-                self._splitter_step = step
-                continue
-
-            if isinstance(step, FeatureScaler):
-                self._scaler_step = step
-
-            try:
-                processed_df = step.transform(
-                    processed_df,
-                    target_column=target_column,
-                )
-            except Exception as e:
-                raise PipelineError(step.name, str(e)) from e
+        if self.cache_enabled:
+            cached_exec = self.memory.cache(self._execute_steps)
+            processed_df, self._splitter_step, self._scaler_step, self._encoders = cached_exec(df, target_column)
+        else:
+            processed_df, self._splitter_step, self._scaler_step, self._encoders = self._execute_steps(df, target_column)
 
         # Pisahkan fitur dan target
         if target_column not in processed_df.columns:
@@ -370,6 +519,7 @@ class Pipeline:
             "dataframe": processed_df,
             "feature_names": feature_names,
             "scaler": scaler,
+            "encoders": self._encoders,
             "X_train": X_train,
             "X_test": X_test,
             "y_train": y_train,
@@ -391,11 +541,12 @@ class Pipeline:
         Pipeline
             Pipeline instance yang siap dijalankan.
         """
-        pipeline = cls()
         pipeline_config = config.get("pipeline", {})
+        cache_enabled = pipeline_config.get("cache_enabled", False)
+        pipeline = cls(cache_enabled=cache_enabled)
+
         dataset_config = config.get("dataset", {})
         zero_columns = dataset_config.get("zero_columns", [])
-
         steps_config = pipeline_config.get("steps", [])
 
         for step_cfg in steps_config:
@@ -409,8 +560,9 @@ class Pipeline:
                     f"Pilihan: {list(STEP_REGISTRY.keys())}",
                 )
 
-            # Build kwargs dari config (hilangkan key 'name')
-            kwargs = {k: v for k, v in step_cfg.items() if k != "name"}
+            # Build kwargs dari config (hilangkan key 'name' dan 'optional')
+            kwargs = {k: v for k, v in step_cfg.items() if k not in ("name", "optional")}
+            optional_flag = step_cfg.get("optional", False)
 
             # Inject zero_columns untuk MissingValueHandler
             if step_name == "missing_values":
@@ -418,6 +570,7 @@ class Pipeline:
 
             try:
                 step = step_class(**kwargs)
+                step.optional = optional_flag
             except TypeError as e:
                 raise PipelineError(
                     step_name,
@@ -427,3 +580,4 @@ class Pipeline:
             pipeline.add_step(step)
 
         return pipeline
+

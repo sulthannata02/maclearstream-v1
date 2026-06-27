@@ -4,12 +4,12 @@ Experiments View — History dan perbandingan experiment runs.
 
 from __future__ import annotations
 
-import pandas as pd
-import streamlit as st
+import pandas as pd  # type: ignore # pyright: ignore[reportMissingImports]
+import streamlit as st  # type: ignore # pyright: ignore[reportMissingImports]
 
-from src.layouts.header import render_header
-from src.components.widgets import empty_state
-from core.experiment import ExperimentTracker
+from src.layouts.header import render_header  # type: ignore # pyright: ignore[reportMissingImports]
+from src.components.widgets import empty_state  # type: ignore # pyright: ignore[reportMissingImports]
+from core.experiment import ExperimentTracker  # type: ignore # pyright: ignore[reportMissingImports]
 
 
 def show() -> None:
@@ -55,6 +55,7 @@ def show() -> None:
             "Name": run.get("name", ""),
             "Model": run.get("model_name", ""),
             "Status": run.get("status", ""),
+            "Duration (s)": round(run.get("execution_duration") or 0.0, 2),
             "Start": run.get("start_time", "")[:19],
         }
 
@@ -86,10 +87,11 @@ def show() -> None:
 
         best = tracker.get_best_run(metric_for_best)
         if best:
+            duration = best.get('execution_duration') or 0.0
             st.success(
                 f"🏆 **{best['name']}** (Run: {best['run_id']}) — "
                 f"{metric_for_best}: "
-                f"{best['metrics'].get(metric_for_best, 0):.4f}"
+                f"{best['metrics'].get(metric_for_best, 0):.4f} | Waktu Eksekusi: {duration:.2f}s"
             )
 
             with st.expander("Detail Run"):
@@ -97,6 +99,8 @@ def show() -> None:
                 with col1:
                     st.markdown("**Metrics:**")
                     st.json(best.get("metrics", {}))
+                    st.markdown("**Tags:**")
+                    st.json(best.get("tags", {}))
                 with col2:
                     st.markdown("**Parameters:**")
                     st.json(best.get("params", {}))
@@ -108,3 +112,4 @@ def show() -> None:
             count = tracker.clear_all()
             st.success(f"✅ {count} experiment dihapus.")
             st.rerun()
+

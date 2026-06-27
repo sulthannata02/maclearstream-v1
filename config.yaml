@@ -57,20 +57,38 @@ features:
 #   encoding       : label | onehot | none
 #   scaling        : standard | minmax | robust | none
 #   split          : test_size, random_state, stratify
+#   nlp_cleaning   : true | false (opsional untuk teks)
+#   vectorizer     : tfidf | bow | none (opsional untuk teks)
 pipeline:
+  cache_enabled: true             # Caching pipeline via joblib
   steps:
     - name: missing_values
       strategy: median
+      optional: false
 
     - name: outlier_removal
       method: none
       threshold: 1.5
+      optional: true
 
     - name: encoding
       method: label
+      optional: false
 
     - name: scaling
       method: standard
+      optional: false
+
+    - name: nlp_cleaning
+      enabled: false
+      lowercase: true
+      remove_stopwords: true
+      optional: true
+
+    - name: vectorizer
+      method: none
+      max_features: 5000
+      optional: true
 
     - name: split
       test_size: 0.2
@@ -81,7 +99,7 @@ pipeline:
 # Models — daftar model yang tersedia
 # ──────────────────────────────────────────────
 # Tambah model baru = tambah entry di bawah.
-# 'class' harus full module path sklearn.
+# 'class' harus full module path sklearn / library lain.
 models:
   - name: logistic_regression
     display_name: Logistic Regression
@@ -121,6 +139,37 @@ models:
       probability: true
       random_state: 42
 
+  - name: xgboost
+    display_name: XGBoost Classifier
+    class: xgboost.XGBClassifier
+    task: classification
+    params:
+      n_estimators: 200
+      learning_rate: 0.1
+      max_depth: 6
+      random_state: 42
+
+  - name: lightgbm
+    display_name: LightGBM Classifier
+    class: lightgbm.LGBMClassifier
+    task: classification
+    params:
+      n_estimators: 200
+      learning_rate: 0.1
+      max_depth: 6
+      random_state: 42
+
+  - name: catboost
+    display_name: CatBoost Classifier
+    class: catboost.CatBoostClassifier
+    task: classification
+    params:
+      iterations: 200
+      learning_rate: 0.1
+      depth: 6
+      verbose: 0
+      random_state: 42
+
 # ──────────────────────────────────────────────
 # UI Settings
 # ──────────────────────────────────────────────
@@ -129,6 +178,14 @@ ui:
   page_icon: "🤖"
   layout: wide
   theme: dark_premium               # dark_premium | ocean_blue | forest_green | minimal_light
+
+  visualizations:
+    feature_importance: true
+    correlation_heatmap: true
+    confusion_matrix: true
+    roc_curve: true
+    precision_recall_curve: true
+    residual_plot: true
 
   menu:
     - emoji: "🏠"
@@ -169,4 +226,9 @@ ui:
 paths:
   dataset_dir: dataset
   artifacts_dir: artifacts
+  models_dir: artifacts/models
+  preprocessors_dir: artifacts/preprocessors
+  encoders_dir: artifacts/encoders
+  reports_dir: artifacts/reports
   experiments_dir: experiments
+

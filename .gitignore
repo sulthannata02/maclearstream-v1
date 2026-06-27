@@ -20,7 +20,8 @@ ENV/
 # ──────────────────────────────────────────────
 # IDE
 # ──────────────────────────────────────────────
-.vscode/
+.vscode/*
+!.vscode/settings.json
 .idea/
 *.swp
 *.swo
@@ -36,9 +37,14 @@ desktop.ini
 # ──────────────────────────────────────────────
 # Project Artifacts (auto-generated)
 # ──────────────────────────────────────────────
-artifacts/*.pkl
-artifacts/*.joblib
-experiments/*.json
+artifacts/cache/
+artifacts/**/*.pkl
+artifacts/**/*.joblib
+artifacts/**/*.onnx
+artifacts/**/*.json
+artifacts/**/*.csv
+experiments/**/*.json
+*.onnx
 
 # ──────────────────────────────────────────────
 # Jupyter Notebooks

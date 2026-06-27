@@ -44,6 +44,7 @@ class ExperimentRun:
         self.experiments_dir: str = experiments_dir
         self.start_time: str = datetime.now().isoformat()
         self.end_time: str | None = None
+        self.execution_duration: float | None = None
         self.params: dict[str, Any] = {}
         self.metrics: dict[str, float] = {}
         self.model_name: str = ""
@@ -74,6 +75,7 @@ class ExperimentRun:
             "model_name": self.model_name,
             "start_time": self.start_time,
             "end_time": self.end_time,
+            "execution_duration": self.execution_duration,
             "status": self.status,
             "params": self.params,
             "metrics": self.metrics,
@@ -98,8 +100,15 @@ class ExperimentRun:
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.end_time = datetime.now().isoformat()
+        try:
+            dt_start = datetime.fromisoformat(self.start_time)
+            dt_end = datetime.fromisoformat(self.end_time)
+            self.execution_duration = (dt_end - dt_start).total_seconds()
+        except Exception:
+            self.execution_duration = 0.0
         self.status = "failed" if exc_type else "completed"
         self.save()
+
 
 
 # ══════════════════════════════════════════════

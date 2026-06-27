@@ -7,7 +7,10 @@ untuk memproses dataset.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
+import joblib
 
 from config.settings import get_config
 from core.pipeline import Pipeline
@@ -26,7 +29,7 @@ def preprocess(config: dict[str, Any] | None = None) -> dict[str, Any]:
     Returns
     -------
     dict
-        Berisi: dataframe, feature_names, scaler,
+        Berisi: dataframe, feature_names, scaler, encoders,
         X_train, X_test, y_train, y_test.
     """
     if config is None:
@@ -44,6 +47,24 @@ def preprocess(config: dict[str, Any] | None = None) -> dict[str, Any]:
     # Jalankan pipeline
     result = pipeline.run(df, target_column=target_column)
 
+    # Persist artifacts (scaler, encoders, feature metadata)
+    paths_config = config.get("paths", {})
+    preprocessors_dir = Path(paths_config.get("preprocessors_dir", "artifacts/preprocessors"))
+    encoders_dir = Path(paths_config.get("encoders_dir", "artifacts/encoders"))
+
+    preprocessors_dir.mkdir(parents=True, exist_ok=True)
+    encoders_dir.mkdir(parents=True, exist_ok=True)
+
+    if result.get("scaler"):
+        joblib.dump(result["scaler"], preprocessors_dir / "scaler.joblib")
+
+    if result.get("encoders"):
+        joblib.dump(result["encoders"], encoders_dir / "encoders.joblib")
+
+    # Simpan feature metadata
+    with open(preprocessors_dir / "feature_metadata.json", "w", encoding="utf-8") as f:
+        json.dump({"feature_names": result.get("feature_names", [])}, f, indent=2)
+
     return result
 
 
@@ -60,3 +81,4 @@ def get_pipeline_summary(
 
     pipeline = Pipeline.from_config(config)
     return pipeline.describe()
+
